@@ -1,0 +1,15 @@
+.chat-msg-box-bottom{
+    overflow-y:auto;
+    height: 250px;
+    width: 95%;
+}
+
+.remove{
+    cursor: pointer;
+    cursor: hand;
+    color: black;"
+}
+
+.remove:hover{
+    text-decoration: underline;
+}
