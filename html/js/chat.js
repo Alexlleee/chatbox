@@ -1,4 +1,5 @@
 (function() {
+    var currentUser = null;
     var socketioPort = '8080';
     var url = window.location.hostname + ":" + socketioPort;
     var socket = io.connect(url+'/chat');
@@ -24,6 +25,7 @@
 
     // Bind events to the socket
     socket.on('login_info', function(msg) {
+        currentUser = msg;
         $user_info.html('Hello, '+ msg + "!");
     });
     socket.on('messages', function(msg) {
@@ -84,9 +86,13 @@
     }
 
     function get_msg_element(value){
+        var deleteField = '<td></td>';
+        if (value[2] == currentUser){
+            deleteField = '<td style="vertical-align: middle"><p class="remove"  messageid="' + value[0] +
+            '">Удалить</p></td>'
+        }
         return $('<tr messageid="' + value[0] + '"><td>' + '[' + value[3] + '] ' + value[2] + ': '
-                + value[1] + '</td><td style="vertical-align: middle"><p class="remove"  messageid="' + value[0] +
-            '">Удалить</p></td></tr>')
+                + value[1] + '</td>'+ deleteField + '</tr>')
     }
 
     function scroll_down(){
