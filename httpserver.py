@@ -59,16 +59,28 @@ class ChatSession(Session):
 
     def render(self, request):
         log = self._log.getChild("render")
+        method = request.method.lower()
+        if method == self.GET_METHOD_LOWER:
+            gevent.spawn(self.render_get, request).join()
+        elif method == self.POST_METHOD_LOWER:
+            gevent.spawn(self.render_post, request).join()
+        else:
+            response = Response()
+            response.responseCode = 501
+            self.write(response)
+
+    def render_post(self, request):
+        """
+        Render HTTP POST request
+        :param request: http request
+        """
+        log = self._log.getChild("render_post")
         try:
-            method = request.method.lower()
-            if method == self.GET_METHOD_LOWER:
-                gevent.spawn(self.render_get, request).join()
-            elif method == self.POST_METHOD_LOWER:
-                gevent.spawn(self.render_post, request).join()
-            else:
-                response = Response()
-                response.responseCode = 501
-                self.write(response)
+            self.postUrlList[request.url](request)
+        except KeyError:
+            response = Response()
+            response.responseCode = 404
+            self.write(response)
         except (error.BaseException, BaseSessionException) as bErr:
             response = Response()
             response.responseCode = 400
@@ -81,18 +93,6 @@ class ChatSession(Session):
             response.responseCode = 500
             response.content = validator.create_json_response(errorCode=500, reason="Internal error.")
             response.headers['Content-Type'] = 'application/json'
-            self.write(response)
-
-    def render_post(self, request):
-        """
-        Render HTTP POST request
-        :param request: http request
-        """
-        try:
-            self.postUrlList[request.url](request)
-        except KeyError:
-            response = Response()
-            response.responseCode = 404
             self.write(response)
 
     def index(self, request):
@@ -190,6 +190,20 @@ class ChatSession(Session):
             return
         except KeyError:
             self.get_from_static(url)
+        except (error.BaseException, BaseSessionException) as bErr:
+            response = Response()
+            response.responseCode = 400
+            response.content = validator.create_json_response(errorCode=bErr.errno, reason=bErr.errorMsg)
+            response.headers['Content-Type'] = 'application/json'
+            self.write(response)
+        except Exception as err:
+            log.exception("Exception in rended: {}".format(err))
+            response = Response()
+            response.responseCode = 500
+            response.content = validator.create_json_response(errorCode=500, reason="Internal error.")
+            response.headers['Content-Type'] = 'application/json'
+            self.write(response)
+
 
     def get_from_static(self, url):
         """
