@@ -110,7 +110,7 @@ class ChatSession(Session):
             url = request.url
             if url == '/':
                 url = '/index.html'
-            self.get_from_static(url)
+            self.get_from_static(request)
 
     def auth(self, request):
         """
@@ -127,6 +127,7 @@ class ChatSession(Session):
         response.set_cookie(self.cookieName, cookie)
         response.content = validator.create_json_response(data={})
         response.headers['Content-Type'] = '; '.join(['application/json', 'charset=utf-8'])
+        log.info("Set cookie: {}, login: {}, userid: {}".format(cookie, login, user.id))
         self.write(response)
 
     def registration(self, request):
@@ -146,6 +147,7 @@ class ChatSession(Session):
         response.set_cookie(self.cookieName, cookie)
         response.content = validator.create_json_response(data={})
         response.headers['Content-Type'] = '; '.join(['application/json', 'charset=utf-8'])
+        log.info("Set cookie: {}, login: {}, userid: {}".format(cookie, login, userId))
         self.write(response)
 
     def log_out(self, request):
@@ -173,7 +175,7 @@ class ChatSession(Session):
         log = self._log.getChild("chat")
         try:
             userId = self._check_auth(request)
-            self.get_from_static(request.url)
+            self.get_from_static(request)
         except Unauthorized:
             response = self.get_redirect_response('/')
             self.write(response)
@@ -189,7 +191,7 @@ class ChatSession(Session):
             self.getUrlList[url](request)
             return
         except KeyError:
-            self.get_from_static(url)
+            self.get_from_static(request)
         except (error.BaseException, BaseSessionException) as bErr:
             response = Response()
             response.responseCode = 400
@@ -204,14 +206,17 @@ class ChatSession(Session):
             response.headers['Content-Type'] = 'application/json'
             self.write(response)
 
-
-    def get_from_static(self, url):
+    def get_from_static(self, request):
         """
         Get files from static
         :param url: HTTP url
         :return:
         """
         log = self._log.getChild("get_from_static")
+        url = request.url
+        if url == '/':
+            url = '/index.html'
+        cookie = request.get_cookie(self.cookieName)
         response = Response()
         try:
             path = ''.join([self.staticPath, url])
@@ -219,6 +224,7 @@ class ChatSession(Session):
                 content = file.read()
                 response.content = content
                 contentType = self.get_file_content_type(path)
+                response.set_cookie(self.cookieName, cookie)
                 response.headers['Content-Type'] = '; '.join([contentType, 'charset=utf-8'])
         except Exception as err:
             log.warning("Client: {}, url: {} error: {}".format(self.addr, url, err))
@@ -241,8 +247,11 @@ class ChatSession(Session):
         :param request: http request
         :return: user identifier
         """
+        log = self._log.getChild('_check_auth')
         cookie = request.get_cookie(self.cookieName)
-        return self.dbHandler.get_authorized_user_id(cookie)
+        userId = self.dbHandler.get_authorized_user_id(cookie)
+        log.info("Authorized user: {}, cookie: {}".format(userId, cookie))
+        return userId
 
     def get_redirect_response(self, path='/'):
         """
